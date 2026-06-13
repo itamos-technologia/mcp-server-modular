@@ -1,0 +1,21 @@
+{
+  "name": "mcp-server-modular",
+  "version": "1.0.0",
+  "description": "No-code tool loading for MCP. Drop a .js file, get a tool.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "express": "^4.21.0",
+    "zod": "^3.24.0"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/itamos-technologia/mcp-server-modular"
+  },
+  "keywords": ["mcp", "model-context-protocol", "tools", "modular", "lazy-loading"]
+}
