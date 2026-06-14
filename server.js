@@ -57,7 +57,85 @@ const ctx = { run, runSafe, esc };
 
 const transports = {};
 
+// Track cleanup functions for tool lifecycle
+const toolCleanups = [];
+let toolVersion = 0;
+
 async function loadTools(server) {
+  const dir = path.join(__dirname, 'tools');
+
+  if (!fs.existsSync(dir)) {
+    console.log('[mcp] No tools/ directory found. Create one and add .js tool files.');
+    return 0;
+  }
+
+  const files = fs.readdirSync(dir).filter(f => f.endsWith('.js'));
+  let loaded = 0;
+
+  for (const file of files) {
+    try {
+      // Cache-busting for hot-reload: append version to force re-import
+      const mod = await import(path.join(dir, file) + '?v=' + toolVersion);
+      const tool = mod.default || mod;
+
+      if (!tool.name || !tool.schema || !tool.handler) {
+        console.warn(`[mcp] Skip ${file}: missing name, schema, or handler`);
+        continue;
+      }
+
+      // Lifecycle: call init() if exported
+      if (typeof tool.init === 'function') {
+        try {
+          await tool.init(ctx);
+          console.log(`[mcp] Initialized: ${tool.name}`);
+        } catch (e) {
+          console.error(`[mcp] Init failed for ${tool.name}:`, e.message);
+        }
+      }
+
+      // Lifecycle: track cleanup() for shutdown
+      if (typeof tool.cleanup === 'function') {
+        toolCleanups.push({ name: tool.name, fn: tool.cleanup });
+      }
+
+      server.tool(
+        tool.name,
+        tool.description || '',
+        tool.schema,
+        async (args) => {
+          try {
+            return await tool.handler(args, ctx);
+          } catch (e) {
+            return { content: [{ type: 'text', text: `Error in ${tool.name}: ${e.message}` }] };
+          }
+        }
+      );
+
+      loaded++;
+      console.log(`[mcp] Loaded tool: ${tool.name} (${file})`);
+    } catch (e) {
+      console.error(`[mcp] Failed to load ${file}:`, e.message);
+    }
+  }
+
+  // Warn about .ts files (TypeScript not yet supported natively)
+  const tsFiles = fs.readdirSync(dir).filter(f => f.endsWith('.ts'));
+  if (tsFiles.length > 0) {
+    console.warn(`[mcp] Found ${tsFiles.length} TypeScript files — compile to .js first or install tsx: npx tsx tools/your_tool.ts`);
+  }
+
+  return loaded;
+}
+
+// Hot-reload: watch tools/ for changes, bump version so next session picks up new code
+const toolsDir = path.join(__dirname, 'tools');
+if (fs.existsSync(toolsDir)) {
+  fs.watch(toolsDir, (event, filename) => {
+    if (!filename || !filename.endsWith('.js')) return;
+    toolVersion++;
+    console.log(`[mcp] Tool changed: ${filename} (v${toolVersion}) — new sessions will use updated code`);
+  });
+}{
   const dir = path.join(__dirname, 'tools');
 
   if (!fs.existsSync(dir)) {
@@ -161,8 +239,19 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('[mcp-server-modular] Add tools to ./tools/ and restart.');
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('[mcp] Shutting down...');
+
+  // Lifecycle: call cleanup() on all tools that registered one
+  for (const { name, fn } of toolCleanups) {
+    try {
+      await fn(ctx);
+      console.log(`[mcp] Cleaned up: ${name}`);
+    } catch (e) {
+      console.error(`[mcp] Cleanup failed for ${name}:`, e.message);
+    }
+  }
+
   for (const t of Object.values(transports)) {
     try { t.close(); } catch {}
   }
