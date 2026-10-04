@@ -161,12 +161,15 @@ app.post('/mcp', async (req, res) => {
   const server = createServer();
   await loadTools(server);
 
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => crypto.randomUUID() });
-  transports[transport.sessionId] = transport;
-
-  transport.on('close', () => {
-    delete transports[transport.sessionId];
+  // The session id only exists once the client's initialize request has been
+  // handled, so register the transport from the SDK's callback, not here.
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: () => crypto.randomUUID(),
+    onsessioninitialized: (sid) => { transports[sid] = transport; },
   });
+  transport.onclose = () => {
+    if (transport.sessionId) delete transports[transport.sessionId];
+  };
 
   await server.connect(transport);
   await transport.handleRequest(req, res);
@@ -183,9 +186,10 @@ app.get('/mcp', async (req, res) => {
 app.delete('/mcp', async (req, res) => {
   const sessionId = req.headers['mcp-session-id'];
   if (sessionId && transports[sessionId]) {
-    await transports[sessionId].handleRequest(req, res);
+    await transports[sessionId].handleRequest(req, res);   // the SDK sends the response
+    return;
   }
-  res.status(200).end();
+  res.status(404).json({ error: 'No such session.' });
 });
 
 // Health check
