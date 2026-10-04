@@ -154,7 +154,8 @@ app.post('/mcp', async (req, res) => {
   const sessionId = req.headers['mcp-session-id'];
 
   if (sessionId && transports[sessionId]) {
-    await transports[sessionId].handleRequest(req, res);
+    // express.json() already consumed the body, so hand the SDK the parsed one
+    await transports[sessionId].handleRequest(req, res, req.body);
     return;
   }
 
@@ -172,7 +173,7 @@ app.post('/mcp', async (req, res) => {
   };
 
   await server.connect(transport);
-  await transport.handleRequest(req, res);
+  await transport.handleRequest(req, res, req.body);
 });
 
 app.get('/mcp', async (req, res) => {
