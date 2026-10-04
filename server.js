@@ -135,48 +135,6 @@ if (fs.existsSync(toolsDir)) {
     toolVersion++;
     console.log(`[mcp] Tool changed: ${filename} (v${toolVersion}) — new sessions will use updated code`);
   });
-}{
-  const dir = path.join(__dirname, 'tools');
-
-  if (!fs.existsSync(dir)) {
-    console.log('[mcp] No tools/ directory found. Create one and add .js tool files.');
-    return 0;
-  }
-
-  const files = fs.readdirSync(dir).filter(f => f.endsWith('.js'));
-  let loaded = 0;
-
-  for (const file of files) {
-    try {
-      const mod = await import(path.join(dir, file));
-      const tool = mod.default || mod;
-
-      if (!tool.name || !tool.schema || !tool.handler) {
-        console.warn(`[mcp] Skip ${file}: missing name, schema, or handler`);
-        continue;
-      }
-
-      server.tool(
-        tool.name,
-        tool.description || '',
-        tool.schema,
-        async (args) => {
-          try {
-            return await tool.handler(args, ctx);
-          } catch (e) {
-            return { content: [{ type: 'text', text: `Error in ${tool.name}: ${e.message}` }] };
-          }
-        }
-      );
-
-      loaded++;
-      console.log(`[mcp] Loaded tool: ${tool.name} (${file})`);
-    } catch (e) {
-      console.error(`[mcp] Failed to load ${file}:`, e.message);
-    }
-  }
-
-  return loaded;
 }
 
 // ── Create MCP server ────────────────────────────────────────────────
