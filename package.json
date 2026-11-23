@@ -8,14 +8,20 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "express": "^4.22.3",
-    "zod": "^3.24.0"
+    "zod": "^4.6.7"
   },
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/itamos-technologia/mcp-server-modular"
   },
-  "keywords": ["mcp", "model-context-protocol", "tools", "modular", "lazy-loading"]
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "tools",
+    "modular",
+    "lazy-loading"
+  ]
 }
